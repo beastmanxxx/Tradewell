@@ -900,6 +900,7 @@
       // Deposit modal state
       const depositAmounts = [50, 100, 200, 500, 1000, 2000];
       const [depositAmount, setDepositAmount] = useState(depositAmounts[0]);
+      const [depositCustomAmount, setDepositCustomAmount] = useState('');
       const [depositUpi, setDepositUpi] = useState('');
       // Withdraw modal state
       const [withdrawAmount, setWithdrawAmount] = useState('');
@@ -1148,14 +1149,16 @@
       const handleDeposit = () => {
         setShowDeposit(true);
         setDepositAmount(depositAmounts[0]);
+        setDepositCustomAmount('');
         setDepositUpi('');
       };
       const confirmDeposit = () => {
-        if (!depositAmount || !depositUpi) return;
+        const finalDepositAmount = depositCustomAmount ? Number(depositCustomAmount) : depositAmount;
+        if (!finalDepositAmount || !depositUpi) return;
         setShowDeposit(false);
         setNotification('Deposit request submitted! Waiting for admin approval.');
         setTimeout(() => setNotification(''), 4000);
-        const newDeposit = { amount: depositAmount, upi: depositUpi, time: Date.now(), status: 'pending' };
+        const newDeposit = { amount: finalDepositAmount, upi: depositUpi, time: Date.now(), status: 'pending' };
         if (user) {
           const ref = db.collection('users').doc(user.uid).collection('depositHistory');
           ref.add(newDeposit).then(() => {
@@ -1169,6 +1172,7 @@
         }
         setDepositHistory(hist => [newDeposit, ...hist].slice(0, 8));
         setDepositAmount(depositAmounts[0]);
+        setDepositCustomAmount('');
         setDepositUpi('');
       };
       // Withdraw
@@ -1183,7 +1187,7 @@
         const val = Number(amount);
         if (isNaN(val)) return 'Enter a valid number';
         if (val < 200) return 'Minimum withdraw is ₹200';
-        if (val > 20000) return 'Maximum withdraw is ₹20,000';
+        if (val > 100000) return 'Maximum withdraw is ₹1,00,000';
         return '';
       };
       const onWithdrawAmountChange = (e) => {
@@ -1566,11 +1570,23 @@
                 depositAmounts.map(amt =>
                   React.createElement('button', {
                     key: amt,
-                    className: 'amount-btn' + (depositAmount === amt ? ' selected' : ''),
-                    onClick: () => setDepositAmount(amt),
+                    className: 'amount-btn' + (depositAmount === amt && !depositCustomAmount ? ' selected' : ''),
+                    onClick: () => { setDepositAmount(amt); setDepositCustomAmount(''); },
                     style: { minWidth: 70, minHeight: 36 }
                   }, `₹${amt}`)
-                )
+                ),
+                React.createElement('input', {
+                  type: 'number',
+                  min: 1,
+                  placeholder: 'Custom',
+                  className: 'custom-amount-input',
+                  value: depositCustomAmount,
+                  onChange: e => {
+                    setDepositCustomAmount(e.target.value.replace(/[^0-9]/g, ''));
+                    setDepositAmount(null);
+                  },
+                  style: { minWidth: 70, minHeight: 36 }
+                })
               ),
               React.createElement('input', {
                 type: 'text',
@@ -1582,9 +1598,9 @@
               }),
               React.createElement('button', {
                 className: 'history-btn',
-                style: { marginTop: 10, opacity: (!depositAmount || !depositUpi) ? 0.6 : 1, cursor: (!depositAmount || !depositUpi) ? 'not-allowed' : 'pointer', width: '95%' },
+                style: { marginTop: 10, opacity: ((!depositAmount && !depositCustomAmount) || !depositUpi) ? 0.6 : 1, cursor: ((!depositAmount && !depositCustomAmount) || !depositUpi) ? 'not-allowed' : 'pointer', width: '95%' },
                 onClick: confirmDeposit,
-                disabled: (!depositAmount || !depositUpi)
+                disabled: ((!depositAmount && !depositCustomAmount) || !depositUpi)
               }, 'Confirm Deposit')
             )
           ),
@@ -1602,7 +1618,7 @@
               React.createElement('input', {
                 type: 'number',
                 min: 200,
-                max: 20000,
+                max: 100000,
                 placeholder: 'Enter amount',
                 className: 'custom-amount-input',
                 value: withdrawAmount,
