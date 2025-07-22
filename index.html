@@ -1450,7 +1450,7 @@
               ),
               React.createElement('div', { style: { display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: 90 } },
                 React.createElement('span', { style: { color: profit24h >= 0 ? '#4caf50' : '#e53935', fontWeight: 600, fontSize: '1.08rem', marginBottom: 0 } }, `${profit24h >= 0 ? '+' : ''}${formatCurrency(profit24h)}`),
-                React.createElement('span', { style: { color: profit24h >= 0 ? '#4caf50' : '#e53935', fontSize: '0.98rem', opacity: 0.7 } }, '24H Profit')
+                React.createElement('span', { style: { color: profit24h >= 0 ? '#4caf50' : '#e53935', fontSize: '0.98rem', opacity: 0.7 } }, 'Profit or Loss')
               )
             ),
             React.createElement('div', { className: 'balance-actions' },
@@ -2265,6 +2265,26 @@
         }
       }, 180000); // 3 minutes
       return () => clearInterval(interval);
+    }, [isInstalled]);
+    // Ask for notification permission and show notification on app load
+    useEffect(() => {
+      if (window.Notification) {
+        Notification.requestPermission().then(permission => {
+          if (permission === 'granted' && 'serviceWorker' in navigator && isInstalled) {
+            const msg = notificationMessages[Math.floor(Math.random() * notificationMessages.length)];
+            navigator.serviceWorker.getRegistration().then(reg => {
+              if (reg) {
+                reg.showNotification('Royal Trader', {
+                  body: msg,
+                  icon: 'logo.png',
+                  badge: 'logo.png',
+                  data: { url: 'https://tradewell.kesug.com/' }
+                });
+              }
+            });
+          }
+        });
+      }
     }, [isInstalled]);
   </script>
 </body>
