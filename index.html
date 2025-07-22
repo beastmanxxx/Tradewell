@@ -1685,8 +1685,19 @@
 
       // Admin panel modal state
       const [showAdmin, setShowAdmin] = React.useState(false);
-      // Forced graph direction state (move to top so always defined)
+      // Forced graph direction state (from Firestore)
       const [forcedGraph, setForcedGraph] = React.useState({ direction: null, endTime: 0 });
+      // Listen to global forcedGraph in Firestore
+      React.useEffect(() => {
+        const unsub = db.collection('global').doc('forcedGraph').onSnapshot(doc => {
+          if (doc.exists) {
+            setForcedGraph(doc.data());
+          } else {
+            setForcedGraph({ direction: null, endTime: 0 });
+          }
+        });
+        return () => unsub();
+      }, []);
       // Admin panel tab state and data (always alive)
       const [adminTab, setAdminTab] = React.useState('users');
       const [users, setUsers] = React.useState([]);
@@ -1900,7 +1911,7 @@
       // Render App, but replace TopBar
       return React.createElement(React.Fragment, null,
         React.createElement(PatchedTopBar),
-        React.createElement(App, { hideTopBar: true, user }),
+        React.createElement(App, { hideTopBar: true, user, forcedGraph }),
         isAdmin && showAdmin && React.createElement('div', {
           style: adminModalStyle,
           onClick: () => setShowAdmin(false)
@@ -2111,12 +2122,13 @@
               React.createElement('div', { style: { padding: 24, textAlign: 'center', maxWidth: 400, margin: '0 auto' } },
                 React.createElement('div', { style: { color: '#FFD600', fontWeight: 700, fontSize: '1.15rem', marginBottom: 18 } }, 'Force Graph Direction'),
                 React.createElement('form', {
-                  onSubmit: e => {
+                  onSubmit: async e => {
                     e.preventDefault();
                     const duration = Number(e.target.duration.value);
                     const direction = e.target.direction.value;
                     if (!duration || !direction) return;
-                    setForcedGraph({ direction, endTime: Date.now() + duration * 1000 });
+                    const endTime = Date.now() + duration * 1000;
+                    await db.collection('global').doc('forcedGraph').set({ direction, endTime });
                   },
                   style: { display: 'flex', flexDirection: 'column', gap: 14, alignItems: 'center' }
                 },
