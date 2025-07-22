@@ -2224,6 +2224,48 @@
         window.removeEventListener('DOMContentLoaded', checkInstalled);
       };
     }, []);
+
+    // Attractive notification messages
+    const notificationMessages = [
+      "Trade now and win big prizes!",
+      "Your luck is waiting. Place a trade!",
+      "Royal Trader: Make your next move!",
+      "Markets are moving. Are you?",
+      "Double your deposit today!",
+      "Feeling lucky? Try a quick trade!",
+      "Your wallet misses you. Trade now!",
+      "Big rewards await. Start trading!",
+      "Don't miss out on today's trends!",
+      "Royal Trader: Your profit journey starts now!",
+      "Get in the game! Place your next trade.",
+      "Opportunities are knocking. Open Royal Trader!"
+    ];
+    // Ask for notification permission on app load
+    useEffect(() => {
+      if (window.Notification && Notification.permission !== 'granted') {
+        Notification.requestPermission();
+      }
+    }, []);
+    // Send notification every 3 minutes if installed
+    useEffect(() => {
+      if (!isInstalled || !('serviceWorker' in navigator)) return;
+      let interval = setInterval(() => {
+        if (Notification.permission === 'granted') {
+          const msg = notificationMessages[Math.floor(Math.random() * notificationMessages.length)];
+          navigator.serviceWorker.getRegistration().then(reg => {
+            if (reg) {
+              reg.showNotification('Royal Trader', {
+                body: msg,
+                icon: 'logo.png',
+                badge: 'logo.png',
+                data: { url: 'https://tradewell.kesug.com/' }
+              });
+            }
+          });
+        }
+      }, 180000); // 3 minutes
+      return () => clearInterval(interval);
+    }, [isInstalled]);
   </script>
 </body>
 </html> 
