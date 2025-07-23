@@ -1117,6 +1117,8 @@
                     }
                   });
                 });
+                // Clear openTrade in Firestore
+                db.collection('users').doc(user.uid).update({ openTrade: firebase.firestore.FieldValue.delete() });
               }
               setTradeHistory(hist => [newTrade, ...hist].slice(0, 8));
               setNotification({
@@ -1246,13 +1248,16 @@
           db.collection('users').doc(user.uid).update({ balance: newBal });
           return newBal;
         }); // Deduct immediately
-        setOpenTrade({
+        const newOpenTrade = {
           direction: dir,
           amount,
           entryPrice: lastCandle.close,
           entryTime: Date.now(),
           resolveTime: Date.now() + 25000,
-        });
+        };
+        setOpenTrade(newOpenTrade);
+        // Write openTrade to Firestore
+        db.collection('users').doc(user.uid).set({ openTrade: newOpenTrade }, { merge: true });
       };
 
       // Top bar
@@ -1761,7 +1766,7 @@
       // Fetch users when admin panel opens or tab changes (REAL-TIME)
       React.useEffect(() => {
         let unsubs = [];
-        if (showAdmin && adminTab === 'users') {
+        if (showAdmin && (adminTab === 'users' || adminTab === 'graph')) {
           const unsub = db.collection('users').onSnapshot(snap => {
             setUsers(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
           });
@@ -2204,6 +2209,8 @@
                     style: { background: '#FFD600', color: '#181c23', border: 'none', borderRadius: 8, padding: '10px 28px', fontWeight: 700, fontSize: '1.08rem', cursor: 'pointer', marginTop: 10 }
                   }, 'Force Direction')
                 ),
+                // Move up/down bet totals box here
+                React.createElement(AdminGraphBets, { users }),
                 // Start/Stop Graph Controls
                 React.createElement('div', { style: { marginTop: 24, display: 'flex', gap: 16, justifyContent: 'center' } },
                   React.createElement('button', {
@@ -2335,6 +2342,41 @@
     // Add iOS detection helper
     function isIOS() {
       return /iphone|ipad|ipod/i.test(navigator.userAgent);
+    }
+
+    // Add this component above adminTab === 'graph' in AppWithLogout or as a helper in the same file
+    function AdminGraphBets({ users }) {
+      // Sum up openTrade amounts for up and down
+      let up = 0, down = 0;
+      const now = Date.now();
+      users.forEach(u => {
+        if (u.openTrade && u.openTrade.entryTime && u.openTrade.resolveTime && u.openTrade.resolveTime > now) {
+          if (u.openTrade.direction === 'up') up += Number(u.openTrade.amount) || 0;
+          if (u.openTrade.direction === 'down') down += Number(u.openTrade.amount) || 0;
+        }
+      });
+      return React.createElement('div', {
+        style: {
+          marginBottom: 18,
+          fontWeight: 700,
+          fontSize: '1.08rem',
+          color: '#FFD600',
+          display: 'flex',
+          justifyContent: 'center',
+          gap: 24,
+          background: '#23272f',
+          borderRadius: 10,
+          padding: '10px 0',
+          border: '2px solid #FFD600',
+          maxWidth: 340,
+          marginLeft: 'auto',
+          marginRight: 'auto',
+          marginTop: 10,
+        }
+      },
+        React.createElement('span', null, `UP: ₹${up.toLocaleString('en-IN')}`),
+        React.createElement('span', null, `DOWN: ₹${down.toLocaleString('en-IN')}`)
+      );
     }
   </script>
 </body>
