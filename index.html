@@ -1509,7 +1509,8 @@
               style: { marginTop: 10 },
               onClick: () => {
                 if (isInstalled) {
-                  setNotification('App already installed!');
+                  setNotification(''); // clear first
+                  setTimeout(() => setNotification('App already installed!'), 10);
                   setTimeout(() => setNotification(''), 3000);
                   return;
                 }
