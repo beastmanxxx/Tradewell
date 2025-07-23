@@ -1513,7 +1513,11 @@
                   setTimeout(() => setNotification(''), 3000);
                   return;
                 }
-                setShowInstallModal(true);
+                if (isIOS()) {
+                  setShowInstallModal('ios');
+                } else {
+                  setShowInstallModal('android');
+                }
               },
               disabled: isInstalled
             }, isInstalled ? 'App Installed' : 'Download App'),
@@ -1637,35 +1641,54 @@
               onClick: e => e.stopPropagation(),
               style: { width: '95vw', maxWidth: 320, boxSizing: 'border-box', textAlign: 'center' }
             },
-              React.createElement('div', { className: 'history-title', style: { marginBottom: 18 } }, 'Install App'),
-              React.createElement('div', { style: { marginBottom: 18 } }, 'Do you want to install this app on your device?'),
-              React.createElement('div', { style: { display: 'flex', gap: 16, justifyContent: 'center' } },
-                React.createElement('button', {
-                  className: 'history-btn',
-                  style: { width: 100 },
-                  onClick: async () => {
-                    if (window.deferredPrompt) {
-                      window.deferredPrompt.prompt();
-                      const choiceResult = await window.deferredPrompt.userChoice;
-                      if (choiceResult.outcome === 'accepted') {
-                        setNotification('App installed successfully!');
-                      } else {
-                        setNotification('App install cancelled.');
+              showInstallModal === 'ios' ? (
+                React.createElement(React.Fragment, null,
+                  React.createElement('div', { className: 'history-title', style: { marginBottom: 18 } }, 'Install App on iOS'),
+                  React.createElement('div', { style: { marginBottom: 18, color: '#FFD600', fontWeight: 600 } },
+                    'To install this app on your iPhone or iPad:'
+                  ),
+                  React.createElement('ol', { style: { textAlign: 'left', color: '#fff', fontSize: '1.05rem', margin: '0 0 18px 0', paddingLeft: 22 } },
+                    React.createElement('li', null, 'Open in Safari browser.'),
+                    React.createElement('li', null, 'Tap the Share icon (square with arrow) at the bottom.'),
+                    React.createElement('li', null, 'Scroll down and tap "Add to Home Screen".'),
+                    React.createElement('li', null, 'Tap "Add" on the top right.')
+                  ),
+                  React.createElement('button', {
+                    className: 'history-btn',
+                    style: { width: 100, background: '#e53935', color: '#fff' },
+                    onClick: () => setShowInstallModal(false)
+                  }, 'Close')
+                )
+              ) : (
+                React.createElement(React.Fragment, null,
+                  React.createElement('div', { className: 'history-title', style: { marginBottom: 18 } }, 'Install App'),
+                  React.createElement('div', { style: { marginBottom: 18 } }, 'Do you want to install this app on your device?'),
+                  React.createElement('div', { style: { display: 'flex', gap: 16, justifyContent: 'center' } },
+                    React.createElement('button', {
+                      className: 'history-btn',
+                      style: { width: 100 },
+                      onClick: async () => {
+                        if (isInstalled) {
+                          setNotification('App already installed!');
+                          setTimeout(() => setNotification(''), 3000);
+                          setShowInstallModal(false);
+                          return;
+                        }
+                        if (window.deferredPrompt) {
+                          window.deferredPrompt.prompt();
+                          // Remove all fallback/cancel messages
+                          window.deferredPrompt = null;
+                        }
+                        setShowInstallModal(false);
                       }
-                      setTimeout(() => setNotification(''), 3000);
-                      window.deferredPrompt = null;
-                    } else {
-                      setNotification('App install prompt not available. Try using Chrome or Edge on Android.');
-                      setTimeout(() => setNotification(''), 3000);
-                    }
-                    setShowInstallModal(false);
-                  }
-                }, 'Install'),
-                React.createElement('button', {
-                  className: 'history-btn',
-                  style: { width: 100, background: '#e53935', color: '#fff' },
-                  onClick: () => setShowInstallModal(false)
-                }, 'Cancel')
+                    }, 'Install'),
+                    React.createElement('button', {
+                      className: 'history-btn',
+                      style: { width: 100, background: '#e53935', color: '#fff' },
+                      onClick: () => setShowInstallModal(false)
+                    }, 'Cancel')
+                  )
+                )
               )
             )
           )
@@ -2286,6 +2309,11 @@
         });
       }
     }, [isInstalled]);
+
+    // Add iOS detection helper
+    function isIOS() {
+      return /iphone|ipad|ipod/i.test(navigator.userAgent);
+    }
   </script>
 </body>
 </html> 
