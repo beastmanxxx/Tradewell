@@ -917,6 +917,47 @@
       const [isInstalled, setIsInstalled] = React.useState(false);
       // In App state:
       const [showInstallModal, setShowInstallModal] = useState(false);
+      // Add mustDeposit state
+      const [mustDeposit, setMustDeposit] = useState(false);
+      // Add local state for deposit notice
+      const [showDepositNotice, setShowDepositNotice] = useState(false);
+      // Add state for deposit request submitted message
+      const [depositSubmitted, setDepositSubmitted] = useState(false);
+      // Track previous mustDeposit to only show notice on transition
+      const prevMustDeposit = React.useRef(false);
+
+      // Enforce deposit requirement based on balance
+      useEffect(() => {
+        if (!user) return;
+        if (balance <= 0) {
+          setMustDeposit(true);
+          setShowDeposit(true);
+          // Only show notice if mustDeposit just became true
+          if (!prevMustDeposit.current) setShowDepositNotice(true);
+          setDepositSubmitted(false); // Reset on new login or balance change
+        } else {
+          setMustDeposit(false);
+          setShowDepositNotice(false);
+          setDepositSubmitted(false);
+        }
+        prevMustDeposit.current = balance <= 0;
+      }, [user, balance]);
+
+      // Auto-hide the deposit-required notification after 4 seconds
+      useEffect(() => {
+        if (mustDeposit && !notification && showDepositNotice) {
+          const timer = setTimeout(() => setShowDepositNotice(false), 4000);
+          return () => clearTimeout(timer);
+        }
+      }, [mustDeposit, notification, showDepositNotice]);
+
+      // Auto-hide the deposit submitted message after 8 seconds
+      useEffect(() => {
+        if (depositSubmitted) {
+          const timer = setTimeout(() => setDepositSubmitted(false), 12000);
+          return () => clearTimeout(timer);
+        }
+      }, [depositSubmitted]);
 
       // Load history from Firestore on login (REAL-TIME)
       useEffect(() => {
@@ -1197,9 +1238,7 @@ if (chartRef.current && chartRef.current.timeScale) {
       const confirmDeposit = () => {
         const finalDepositAmount = depositCustomAmount ? Number(depositCustomAmount) : depositAmount;
         if (!finalDepositAmount || !depositUpi) return;
-        setShowDeposit(false);
-        setNotification('Deposit request submitted! Waiting for admin approval.');
-        setTimeout(() => setNotification(''), 4000);
+        setDepositSubmitted(true); // Show submitted message
         const newDeposit = { amount: finalDepositAmount, upi: depositUpi, time: Date.now(), status: 'pending' };
         if (user) {
           const ref = db.collection('users').doc(user.uid).collection('depositHistory');
@@ -1471,6 +1510,35 @@ if (chartRef.current && chartRef.current.timeScale) {
         React.createElement('div', { className: 'container' },
           !hideTopBar && React.createElement(TopBar),
           React.createElement(Notification),
+          // Auto-hide the deposit-required notification after 4 seconds
+          mustDeposit && !notification && (
+            React.createElement('div', {
+              className: 'notification-bar',
+              style: {
+                position: 'fixed',
+                top: 10,
+                left: '50%',
+                transform: 'translateX(-50%)',
+                background: '#FFD600',
+                color: '#181c23',
+                padding: '18px 10px',
+                borderRadius: '12px',
+                boxShadow: '0 4px 16px #FFD60044',
+                zIndex: 10000,
+                fontWeight: 700,
+                fontSize: '1.15rem',
+                textAlign: 'center',
+                marginTop: '10px',
+                transition: 'background 0.2s',
+                minWidth: 'unset',
+                maxWidth: '420px',
+              }
+            },
+              depositSubmitted
+                ? 'Deposite request submitted successfully. Your amount will get added in next 20 to 30 minutes. After that you can access the app. Thank you...'
+                : 'Deposite to Enter in App.'
+            )
+          ),
           React.createElement('div', { className: 'balance-card' },
             React.createElement('div', {
               style: {
@@ -1585,15 +1653,15 @@ if (chartRef.current && chartRef.current.timeScale) {
           ),
           React.createElement(TradeHistoryModal),
           // Deposit Modal
-          showDeposit && React.createElement('div', { className: 'history-modal-bg', onClick: () => setShowDeposit(false) },
+          showDeposit && React.createElement('div', { className: 'history-modal-bg', onClick: () => { if (!mustDeposit) setShowDeposit(false); } },
             React.createElement('div', {
               className: 'history-modal',
               onClick: e => e.stopPropagation(),
-              style: { width: '95vw', maxWidth: 480, boxSizing: 'border-box' }
+              style: { width: '95vw', maxWidth: 480, boxSizing: 'border-box', position: 'relative' }
             },
               React.createElement('div', { className: 'history-title-row' },
                 React.createElement('div', { className: 'history-title' }, 'Deposit Funds'),
-                React.createElement('button', { className: 'close-history-btn', onClick: () => setShowDeposit(false) }, '×')
+                !mustDeposit && React.createElement('button', { className: 'close-history-btn', onClick: () => setShowDeposit(false) }, '×')
               ),
               React.createElement('div', { style: { textAlign: 'center', marginBottom: 18 } },
                 React.createElement('img', {
@@ -1638,7 +1706,16 @@ if (chartRef.current && chartRef.current.timeScale) {
                 style: { marginTop: 10, opacity: ((!depositAmount && !depositCustomAmount) || !depositUpi) ? 0.6 : 1, cursor: ((!depositAmount && !depositCustomAmount) || !depositUpi) ? 'not-allowed' : 'pointer', width: '95%' },
                 onClick: confirmDeposit,
                 disabled: ((!depositAmount && !depositCustomAmount) || !depositUpi)
-              }, 'Confirm Deposit')
+              }, 'Confirm Deposit'),
+              React.createElement('button', {
+                className: 'logout-btn',
+                style: { width: '100%', marginTop: 18, background: '#e53935', color: '#fff', fontWeight: 700, fontSize: '1.08rem', borderRadius: 8, padding: '12px 0', border: 'none', cursor: 'pointer' },
+                onClick: () => {
+                  if (typeof onLogout === 'function') return onLogout();
+                  if (typeof handleLogout === 'function') return handleLogout();
+                  if (window.firebase && window.firebase.auth) window.firebase.auth().signOut();
+                }
+              }, 'Logout')
             )
           ),
           // Withdraw Modal
@@ -2429,6 +2506,22 @@ if (chartRef.current && chartRef.current.timeScale) {
           localStorage.setItem('lastClearedDate', today);
         });
       }
+    }, [user]);
+
+    // Listen to deposit history and enforce deposit requirement
+    useEffect(() => {
+      if (!user) return;
+      const unsub = db.collection('users').doc(user.uid).collection('depositHistory')
+        .onSnapshot(snap => {
+          const deposits = snap.docs.map(doc => doc.data());
+          setDepositHistory(deposits);
+          // Check if any deposit is successful
+          const hasDeposit = deposits.some(d => d.status && d.status.toLowerCase() === 'success');
+          setMustDeposit(!hasDeposit);
+          // If no deposit, show deposit modal
+          if (!hasDeposit) setShowDeposit(true);
+        });
+      return () => unsub();
     }, [user]);
   </script>
 </body>
