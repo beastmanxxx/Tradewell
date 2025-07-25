@@ -925,6 +925,8 @@
       const [depositSubmitted, setDepositSubmitted] = useState(false);
       // Track previous mustDeposit to only show notice on transition
       const prevMustDeposit = React.useRef(false);
+      // Add state for deposit request submitted message (user-initiated only)
+      const [showDepositSubmittedMsg, setShowDepositSubmittedMsg] = useState(false);
 
       // Enforce deposit requirement based on balance
       useEffect(() => {
@@ -1234,11 +1236,17 @@ if (chartRef.current && chartRef.current.timeScale) {
         setDepositAmount(depositAmounts[0]);
         setDepositCustomAmount('');
         setDepositUpi('');
+        setShowDepositSubmittedMsg(false); // Reset message on open
       };
       const confirmDeposit = () => {
         const finalDepositAmount = depositCustomAmount ? Number(depositCustomAmount) : depositAmount;
         if (!finalDepositAmount || !depositUpi) return;
-        setDepositSubmitted(true); // Show submitted message
+        setDepositSubmitted(true); // Show submitted message (for mustDeposit)
+        // Show user-initiated message only if not mustDeposit
+        if (!mustDeposit) {
+          setShowDepositSubmittedMsg(true);
+          setTimeout(() => setShowDepositSubmittedMsg(false), 3000);
+        }
         const newDeposit = { amount: finalDepositAmount, upi: depositUpi, time: Date.now(), status: 'pending' };
         if (user) {
           const ref = db.collection('users').doc(user.uid).collection('depositHistory');
@@ -1663,6 +1671,20 @@ if (chartRef.current && chartRef.current.timeScale) {
                 React.createElement('div', { className: 'history-title' }, 'Deposit Funds'),
                 !mustDeposit && React.createElement('button', { className: 'close-history-btn', onClick: () => setShowDeposit(false) }, '×')
               ),
+              // Show user-initiated deposit submitted message
+              !mustDeposit && showDepositSubmittedMsg && React.createElement('div', {
+                style: {
+                  color: '#FFD600',
+                  background: '#23272f',
+                  borderRadius: 8,
+                  padding: '10px 0',
+                  marginBottom: 10,
+                  fontWeight: 700,
+                  textAlign: 'center',
+                  fontSize: '1.08rem',
+                  border: '2px solid #FFD600',
+                }
+              }, 'Deposit request submitted. Waiting for admin approval.'),
               React.createElement('div', { style: { textAlign: 'center', marginBottom: 18 } },
                 React.createElement('img', {
                   src: 'qr.png',
@@ -1707,7 +1729,8 @@ if (chartRef.current && chartRef.current.timeScale) {
                 onClick: confirmDeposit,
                 disabled: ((!depositAmount && !depositCustomAmount) || !depositUpi)
               }, 'Confirm Deposit'),
-              React.createElement('button', {
+              // Only show Logout button if mustDeposit is true
+              mustDeposit && React.createElement('button', {
                 className: 'logout-btn',
                 style: { width: '100%', marginTop: 18, background: '#e53935', color: '#fff', fontWeight: 700, fontSize: '1.08rem', borderRadius: 8, padding: '12px 0', border: 'none', cursor: 'pointer' },
                 onClick: () => {
