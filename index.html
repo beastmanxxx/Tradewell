@@ -1002,7 +1002,7 @@
             timeVisible: true,
             secondsVisible: false,
             borderColor: '#23272f',
-            rightOffset: 30,
+            rightOffset: 8,
             shiftVisibleRangeOnNewBar: false,
             barSpacing: 18,
           },
@@ -1030,49 +1030,86 @@
           chart.applyOptions({ width: document.getElementById('chart').offsetWidth });
           chart.timeScale().applyOptions({ barSpacing: 18 });
         });
+        // Center the running candle in the chart frame
+        if (chartRef.current && chartRef.current.timeScale) {
+          // 4 means the latest candle will be at the center if visibleBars is 8
+          chartRef.current.timeScale().scrollToPosition(-4, true);
+        }
       }, []);
 
       // Chart update (add new candle every 4s)
-      useEffect(() => {
-        if (!seriesRef.current) return;
-        if (forcedGraph && forcedGraph.paused) return; // Pause chart updates if paused
-        const interval = setInterval(() => {
-          const last = dataRef.current[dataRef.current.length - 1];
-          let next;
-          // If forcedGraph is active, move in that direction
-          if (forcedGraph && forcedGraph.direction && forcedGraph.endTime > Date.now()) {
-            const baseVol = 2 + Math.random() * 8;
-            let open = last.close;
-            let close = open + (forcedGraph.direction === 'up' ? Math.abs((Math.random() + 0.5) * baseVol) : -Math.abs((Math.random() + 0.5) * baseVol));
-            close = Math.max(1, close);
-            const high = Math.max(open, close) + Math.random() * baseVol * 1.5;
-            const low = Math.min(open, close) - Math.random() * baseVol * 1.5;
-            next = {
-              time: last.time + 60,
-              open: parseFloat(open.toFixed(2)),
-              high: parseFloat(high.toFixed(2)),
-              low: parseFloat(low.toFixed(2)),
-              close: parseFloat(close.toFixed(2)),
-            };
-          } else {
-            next = generateNextCandle(last);
-          }
-          dataRef.current.push(next);
-          if (dataRef.current.length > 120) dataRef.current.shift();
-          seriesRef.current.setData(dataRef.current);
-          // Keep latest candle in view
-          const visibleBars = 60;
-          const leftOffset = Math.floor(visibleBars / 7);
-          const total = dataRef.current.length;
-          chartRef.current.timeScale().setVisibleLogicalRange({
-            from: Math.max(0, total - visibleBars - leftOffset),
-            to: Math.max(0, total - leftOffset)
-          });
-          chartRef.current.timeScale().applyOptions({ barSpacing: 18 });
-          chartRef.current.timeScale().scrollToPosition(leftOffset, true);
-        }, 4000);
-        return () => clearInterval(interval);
-      }, [seriesRef.current, forcedGraph]);
+      // Chart update: live candle for 15s, update every 1s
+useEffect(() => {
+  if (!seriesRef.current) return;
+  if (forcedGraph && forcedGraph.paused) return; // Pause chart updates if paused
+
+  let candleTimer;
+  let updateTimer;
+  let currentCandle = null;
+
+  function startNewCandle() {
+    const last = dataRef.current[dataRef.current.length - 1];
+    const nowTime = last ? last.time + 15 : Math.floor(Date.now() / 1000);
+    const open = last ? last.close : 100;
+    currentCandle = {
+      time: nowTime,
+      open: open,
+      high: open,
+      low: open,
+      close: open,
+    };
+    dataRef.current.push(currentCandle);
+    if (dataRef.current.length > 120) dataRef.current.shift();
+    seriesRef.current.setData(dataRef.current);
+    const visibleBars = 8; // ya jitni candles aapko dikhani hain
+if (chartRef.current && chartRef.current.timeScale) {
+  chartRef.current.timeScale().setVisibleLogicalRange({
+    from: Math.max(0, dataRef.current.length - visibleBars - 4), // -4 for center
+    to: Math.max(0, dataRef.current.length + 1)
+  });
+}
+  }
+
+  function updateCurrentCandle() {
+    if (!currentCandle) return;
+    let change;
+    if (forcedGraph && forcedGraph.direction && forcedGraph.endTime > Date.now()) {
+  // Move in forced direction
+  change = (Math.random() + 0.5) * 0.8 * (forcedGraph.direction === 'up' ? 1 : -1); // SLOWER
+  } else {
+    change = (Math.random() - 0.5) * 0.8; // SLOWER
+  }
+    currentCandle.close = Math.max(1, parseFloat((currentCandle.close + change).toFixed(2)));
+    currentCandle.high = Math.max(currentCandle.high, currentCandle.close);
+    currentCandle.low = Math.min(currentCandle.low, currentCandle.close);
+    // Update last candle in dataRef
+    dataRef.current[dataRef.current.length - 1] = { ...currentCandle };
+    seriesRef.current.setData(dataRef.current);
+    const visibleBars = 8; // ya jitni candles aapko dikhani hain
+if (chartRef.current && chartRef.current.timeScale) {
+  chartRef.current.timeScale().setVisibleLogicalRange({
+    from: Math.max(0, dataRef.current.length - visibleBars - 4), // -4 for center
+    to: Math.max(0, dataRef.current.length + 1)
+  });
+}
+  }
+
+  // Start first live candle
+  startNewCandle();
+
+  // Update candle every 1s
+  updateTimer = setInterval(updateCurrentCandle, 4000);
+
+  // Every 15s, fix current candle and start new one
+  candleTimer = setInterval(() => {
+    startNewCandle();
+  }, 30000);
+
+  return () => {
+    clearInterval(updateTimer);
+    clearInterval(candleTimer);
+  };
+}, [seriesRef.current, forcedGraph]);
 
       // Trade timer and resolve logic
       useEffect(() => {
