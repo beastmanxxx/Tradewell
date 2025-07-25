@@ -1157,7 +1157,7 @@ if (chartRef.current && chartRef.current.timeScale) {
       // Trade timer and resolve logic
       useEffect(() => {
         if (!openTrade) return;
-        setTradeTimer(25);
+        setTradeTimer(60);
         timerRef.current && clearInterval(timerRef.current);
         timerRef.current = setInterval(() => {
           setTradeTimer(prev => {
@@ -1338,7 +1338,7 @@ if (chartRef.current && chartRef.current.timeScale) {
           entryPrice: lastCandle.close,
           entryTime: Date.now(),
           entryDate: new Date().toLocaleDateString('en-GB'), // Add readable date
-          resolveTime: Date.now() + 25000,
+          resolveTime: Date.now() + 60000,
         };
         setOpenTrade(newOpenTrade);
         // Write openTrade to Firestore
