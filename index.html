@@ -1100,10 +1100,10 @@ if (chartRef.current && chartRef.current.timeScale) {
   // Update candle every 1s
   updateTimer = setInterval(updateCurrentCandle, 4000);
 
-  // Every 15s, fix current candle and start new one
+  // Every 20s, fix current candle and start new one
   candleTimer = setInterval(() => {
     startNewCandle();
-  }, 30000);
+  }, 20000);
 
   return () => {
     clearInterval(updateTimer);
