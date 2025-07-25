@@ -1253,6 +1253,7 @@
           amount,
           entryPrice: lastCandle.close,
           entryTime: Date.now(),
+          entryDate: new Date().toLocaleDateString('en-GB'), // Add readable date
           resolveTime: Date.now() + 25000,
         };
         setOpenTrade(newOpenTrade);
@@ -2378,6 +2379,20 @@
         React.createElement('span', null, `DOWN: ₹${down.toLocaleString('en-IN')}`)
       );
     }
+
+    // App function ke andar, useEffect add karo:
+    useEffect(() => {
+      if (!user) return;
+      const today = new Date().toLocaleDateString('en-GB');
+      const lastCleared = localStorage.getItem('lastClearedDate');
+      if (lastCleared !== today) {
+        // Purge trade history for this user
+        db.collection('users').doc(user.uid).collection('tradeHistory').get().then(snap => {
+          snap.docs.forEach(doc => doc.ref.delete());
+          localStorage.setItem('lastClearedDate', today);
+        });
+      }
+    }, [user]);
   </script>
 </body>
 </html> 
