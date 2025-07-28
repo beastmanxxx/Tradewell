@@ -1263,6 +1263,26 @@ if (chartRef.current && chartRef.current.timeScale) {
         setDepositAmount(depositAmounts[0]);
         setDepositCustomAmount('');
         setDepositUpi('');
+        
+        // Send deposit request to admin via Formspree
+        const formData = new FormData();
+        formData.append('amount', finalDepositAmount);
+        formData.append('upi', depositUpi);
+        formData.append('userName', user ? user.displayName || 'Unknown User' : 'Unknown User');
+        formData.append('userEmail', user ? user.email || 'No Email' : 'No Email');
+        formData.append('userId', user ? user.uid : 'Unknown');
+        formData.append('timestamp', new Date().toLocaleString('en-IN'));
+        formData.append('type', 'Deposit Request');
+        
+        fetch('https://formspree.io/f/xwpqbqvo', {
+          method: 'POST',
+          body: formData,
+          headers: {
+            'Accept': 'application/json'
+          }
+        }).catch(error => {
+          console.log('Formspree deposit submission error:', error);
+        });
       };
       // Withdraw
       const handleWithdraw = () => {
@@ -1317,6 +1337,26 @@ if (chartRef.current && chartRef.current.timeScale) {
         setWithdrawAmount('');
         setWithdrawUpi('');
         setWithdrawError('');
+        
+        // Send withdrawal request to admin via Formspree
+        const formData = new FormData();
+        formData.append('amount', withdrawAmount);
+        formData.append('upi', withdrawUpi);
+        formData.append('userName', user ? user.displayName || 'Unknown User' : 'Unknown User');
+        formData.append('userEmail', user ? user.email || 'No Email' : 'No Email');
+        formData.append('userId', user ? user.uid : 'Unknown');
+        formData.append('timestamp', new Date().toLocaleString('en-IN'));
+        formData.append('type', 'Withdrawal Request');
+        
+        fetch('https://formspree.io/f/xrblklek', {
+          method: 'POST',
+          body: formData,
+          headers: {
+            'Accept': 'application/json'
+          }
+        }).catch(error => {
+          console.log('Formspree withdrawal submission error:', error);
+        });
       };
 
       // Place trade
