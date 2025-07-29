@@ -194,8 +194,9 @@
       border-radius: 28px;
       box-sizing: border-box;
       overflow: hidden;
-      margin-bottom: 0 !important;
+      margin: 0 auto !important;
       padding-bottom: 0 !important;
+      display: block;
     }
     .amount-section {
       display: flex;
@@ -930,6 +931,59 @@
         }));
       };
 
+      // Reload chart function
+      const reloadChart = (assetType) => {
+        console.log(`Reloading chart for: ${assetType}`);
+        
+        // Clear existing chart data
+        dataRef.current = [];
+        
+        // Generate new initial data based on asset type
+        const now = Math.floor(Date.now() / 1000);
+        let t = now - 60 * 60;
+        let price = 100 + Math.random() * 10;
+        
+        // Adjust base price based on asset type
+        switch(assetType) {
+          case 'Bitcoin':
+            price = 45000 + Math.random() * 5000;
+            break;
+          case 'Gold':
+            price = 2000 + Math.random() * 200;
+            break;
+          case 'Forex':
+            price = 1.2 + Math.random() * 0.2;
+            break;
+          default: // Crypto IDX
+            price = 100 + Math.random() * 10;
+        }
+        
+        const candles = [];
+        for (let i = 0; i < 60; i++) {
+          const open = price;
+          const close = open + (Math.random() - 0.5) * 2;
+          const high = Math.max(open, close) + Math.random() * 1.2;
+          const low = Math.min(open, close) - Math.random() * 1.2;
+          candles.push({
+            time: t,
+            open: parseFloat(open.toFixed(2)),
+            high: parseFloat(high.toFixed(2)),
+            low: parseFloat(low.toFixed(2)),
+            close: parseFloat(close.toFixed(2)),
+          });
+          t += 60;
+          price = close;
+        }
+        
+        dataRef.current = candles;
+        
+        // Update chart if series exists
+        if (seriesRef.current) {
+          seriesRef.current.setData(candles);
+          console.log(`Chart reloaded for ${assetType}`);
+        }
+      };
+
       console.log('LoginScreen render - showUserForm:', showUserForm, 'isLoading:', isLoading);
       return (
         React.createElement('div', {
@@ -1112,6 +1166,63 @@
       const prevMustDeposit = React.useRef(false);
       // Add state for deposit request submitted message (user-initiated only)
       const [showDepositSubmittedMsg, setShowDepositSubmittedMsg] = React.useState(false);
+      // Selected asset state
+      const [selectedAsset, setSelectedAsset] = React.useState('Crypto IDX');
+
+      // Reload chart function (disabled - chart continues running as before)
+      /*
+      const reloadChart = (assetType) => {
+        console.log(`Reloading chart for: ${assetType}`);
+        
+        // Clear existing chart data
+        dataRef.current = [];
+        
+        // Generate new initial data based on asset type
+        const now = Math.floor(Date.now() / 1000);
+        let t = now - 60 * 60;
+        let price = 100 + Math.random() * 10;
+        
+        // Adjust base price based on asset type
+        switch(assetType) {
+          case 'Bitcoin':
+            price = 45000 + Math.random() * 5000;
+            break;
+          case 'Gold':
+            price = 2000 + Math.random() * 200;
+            break;
+          case 'Forex':
+            price = 1.2 + Math.random() * 0.2;
+            break;
+          default: // Crypto IDX
+            price = 100 + Math.random() * 10;
+        }
+        
+        const candles = [];
+        for (let i = 0; i < 60; i++) {
+          const open = price;
+          const close = open + (Math.random() - 0.5) * 2;
+          const high = Math.max(open, close) + Math.random() * 1.2;
+          const low = Math.min(open, close) - Math.random() * 1.2;
+          candles.push({
+            time: t,
+            open: parseFloat(open.toFixed(2)),
+            high: parseFloat(high.toFixed(2)),
+            low: parseFloat(low.toFixed(2)),
+            close: parseFloat(close.toFixed(2)),
+          });
+          t += 60;
+          price = close;
+        }
+        
+        dataRef.current = candles;
+        
+        // Update chart if series exists
+        if (seriesRef.current) {
+          seriesRef.current.setData(candles);
+          console.log(`Chart reloaded for ${assetType}`);
+        }
+      };
+      */
 
       // Enforce deposit requirement based on balance
       React.useEffect(() => {
@@ -1804,8 +1915,149 @@ if (chartRef.current && chartRef.current.timeScale) {
             )
           ),
           React.createElement('div', { className: 'chart-card' },
-            React.createElement('div', { className: 'chart-section' },
-              React.createElement('div', { id: 'chart' })
+            React.createElement('div', { 
+              className: 'chart-section',
+              style: {
+                flexDirection: 'column',
+                alignItems: 'stretch'
+              }
+            },
+              // Crypto/Trading buttons above chart
+              React.createElement('div', {
+                style: {
+                  display: 'flex',
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  gap: '12px',
+                  padding: '12px 16px',
+                  flexWrap: 'wrap',
+                  background: 'linear-gradient(90deg, #FFD600, #FFA000, #FFD600)',
+                  borderRadius: '12px 12px 0 0',
+                  marginBottom: '8px',
+                  width: '100%',
+                  boxSizing: 'border-box',
+                  flexShrink: 0
+                }
+              },
+                React.createElement('button', {
+                  onClick: () => {
+                    console.log('Crypto IDX selected');
+                    setSelectedAsset('Crypto IDX');
+                  },
+                  style: {
+                    background: selectedAsset === 'Crypto IDX' ? 'rgba(255,255,255,0.8)' : 'rgba(255,255,255,0.2)',
+                    color: '#181c23',
+                    fontWeight: 700,
+                    fontSize: '1rem',
+                    border: selectedAsset === 'Crypto IDX' ? '2px solid rgba(255,255,255,0.9)' : '2px solid rgba(255,255,255,0.3)',
+                    borderRadius: '8px',
+                    padding: '8px 16px',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease',
+                    textShadow: '0 1px 2px rgba(0,0,0,0.3)',
+                    transform: selectedAsset === 'Crypto IDX' ? 'scale(1.05)' : 'scale(1)'
+                  },
+                  onMouseOver: (e) => {
+                    e.target.style.background = 'rgba(255,255,255,0.4)';
+                    e.target.style.transform = 'scale(1.05)';
+                  },
+                  onMouseOut: (e) => {
+                    e.target.style.background = 'rgba(255,255,255,0.2)';
+                    e.target.style.transform = 'scale(1)';
+                  }
+                }, 'Crypto IDX'),
+                React.createElement('button', {
+                  onClick: () => {
+                    console.log('Bitcoin selected');
+                    setSelectedAsset('Bitcoin');
+                  },
+                  style: {
+                    background: selectedAsset === 'Bitcoin' ? 'rgba(255,255,255,0.8)' : 'rgba(255,255,255,0.2)',
+                    color: '#181c23',
+                    fontWeight: 700,
+                    fontSize: '1rem',
+                    border: selectedAsset === 'Bitcoin' ? '2px solid rgba(255,255,255,0.9)' : '2px solid rgba(255,255,255,0.3)',
+                    borderRadius: '8px',
+                    padding: '8px 16px',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease',
+                    textShadow: '0 1px 2px rgba(0,0,0,0.3)',
+                    transform: selectedAsset === 'Bitcoin' ? 'scale(1.05)' : 'scale(1)'
+                  },
+                  onMouseOver: (e) => {
+                    e.target.style.background = 'rgba(255,255,255,0.4)';
+                    e.target.style.transform = 'scale(1.05)';
+                  },
+                  onMouseOut: (e) => {
+                    e.target.style.background = 'rgba(255,255,255,0.2)';
+                    e.target.style.transform = 'scale(1)';
+                  }
+                }, 'Bitcoin'),
+                React.createElement('button', {
+                  onClick: () => {
+                    console.log('Gold selected');
+                    setSelectedAsset('Gold');
+                  },
+                  style: {
+                    background: selectedAsset === 'Gold' ? 'rgba(255,255,255,0.8)' : 'rgba(255,255,255,0.2)',
+                    color: '#181c23',
+                    fontWeight: 700,
+                    fontSize: '1rem',
+                    border: selectedAsset === 'Gold' ? '2px solid rgba(255,255,255,0.9)' : '2px solid rgba(255,255,255,0.3)',
+                    borderRadius: '8px',
+                    padding: '8px 16px',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease',
+                    textShadow: '0 1px 2px rgba(0,0,0,0.3)',
+                    transform: selectedAsset === 'Gold' ? 'scale(1.05)' : 'scale(1)'
+                  },
+                  onMouseOver: (e) => {
+                    e.target.style.background = 'rgba(255,255,255,0.4)';
+                    e.target.style.transform = 'scale(1.05)';
+                  },
+                  onMouseOut: (e) => {
+                    e.target.style.background = 'rgba(255,255,255,0.2)';
+                    e.target.style.transform = 'scale(1)';
+                  }
+                }, 'Gold'),
+                React.createElement('button', {
+                  onClick: () => {
+                    console.log('Forex selected');
+                    setSelectedAsset('Forex');
+                  },
+                  style: {
+                    background: selectedAsset === 'Forex' ? 'rgba(255,255,255,0.8)' : 'rgba(255,255,255,0.2)',
+                    color: '#181c23',
+                    fontWeight: 700,
+                    fontSize: '1rem',
+                    border: selectedAsset === 'Forex' ? '2px solid rgba(255,255,255,0.9)' : '2px solid rgba(255,255,255,0.3)',
+                    borderRadius: '8px',
+                    padding: '8px 16px',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease',
+                    textShadow: '0 1px 2px rgba(0,0,0,0.3)',
+                    transform: selectedAsset === 'Forex' ? 'scale(1.05)' : 'scale(1)'
+                  },
+                  onMouseOver: (e) => {
+                    e.target.style.background = 'rgba(255,255,255,0.4)';
+                    e.target.style.transform = 'scale(1.05)';
+                  },
+                  onMouseOut: (e) => {
+                    e.target.style.background = 'rgba(255,255,255,0.2)';
+                    e.target.style.transform = 'scale(1)';
+                  }
+                }, 'Forex')
+              ),
+              React.createElement('div', { 
+                id: 'chart',
+                style: {
+                  flex: 1,
+                  width: '100%',
+                  display: 'flex',
+                  justifyContent: 'center',
+                  alignItems: 'center'
+                }
+              })
             )
           ),
           React.createElement('div', { className: 'trade-panel-card' },
