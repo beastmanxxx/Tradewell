@@ -775,6 +775,12 @@
         font-size: 0.9rem;
       }
     }
+    
+    /* Spinner animation */
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
   </style>
 </head>
 <body>
@@ -820,47 +826,226 @@
     }
 
     // Login/Register UI
-    function LoginScreen() {
+    function LoginScreen({ onLoginComplete, onLogout }) {
+      // Use React.useState instead of useState
+      const [showUserForm, setShowUserForm] = React.useState(false);
+      const [userData, setUserData] = React.useState(null);
+      const [formData, setFormData] = React.useState({
+        name: '',
+        phone: '',
+        aadhar: '',
+        pan: ''
+      });
+      const [isLoading, setIsLoading] = React.useState(false);
+      const [loadingMessage, setLoadingMessage] = React.useState('');
+
       // Google login handler
       const handleGoogleLogin = async () => {
         const provider = new firebase.auth.GoogleAuthProvider();
         try {
           const result = await auth.signInWithPopup(provider);
           const user = result.user;
-          // Always update user doc with latest info (merge: true keeps balance if exists)
+          console.log('Google login successful, checking if user exists...');
+          
+          // Check if user already exists in Firebase
           const userRef = db.collection('users').doc(user.uid);
           const doc = await userRef.get();
-          if (!doc.exists) {
-            // New user, set balance to 0
-            await userRef.set({
-              uid: user.uid,
-              name: user.displayName,
-              email: user.email,
-              photoURL: user.photoURL,
-              createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-              balance: 0
-            });
+          
+          if (doc.exists && doc.data().phone && doc.data().aadhar && doc.data().pan) {
+            // Registered user - go directly to app
+            console.log('Registered user found, going directly to app');
+            if (onLoginComplete) onLoginComplete();
           } else {
-            // Existing user, update info but don't touch balance
-            await userRef.set({
-              uid: user.uid,
-              name: user.displayName,
-              email: user.email,
-              photoURL: user.photoURL,
-              createdAt: firebase.firestore.FieldValue.serverTimestamp()
-            }, { merge: true });
+            // New user - show form
+            console.log('New user, showing form');
+            setUserData(user);
+            setShowUserForm(true);
           }
         } catch (e) {
           alert('Google login failed: ' + e.message);
         }
       };
+
+      // Handle form submission
+      const handleFormSubmit = async (e) => {
+        e.preventDefault();
+        if (!formData.name || !formData.phone || !formData.aadhar || !formData.pan) {
+          alert('Please fill all fields');
+          return;
+        }
+
+        console.log('Form submitted, showing loader');
+        setIsLoading(true);
+        setLoadingMessage('Checking existence...');
+
+        // Simulate 5 second loading
+        setTimeout(async () => {
+          try {
+            const userRef = db.collection('users').doc(userData.uid);
+            const doc = await userRef.get();
+            if (!doc.exists) {
+              // New user, set balance to 0
+              await userRef.set({
+                uid: userData.uid,
+                name: formData.name,
+                email: userData.email,
+                photoURL: userData.photoURL,
+                phone: formData.phone,
+                aadhar: formData.aadhar,
+                pan: formData.pan,
+                createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                balance: 0
+              });
+            } else {
+              // Existing user, update info but don't touch balance
+              await userRef.set({
+                uid: userData.uid,
+                name: formData.name,
+                email: userData.email,
+                photoURL: userData.photoURL,
+                phone: formData.phone,
+                aadhar: formData.aadhar,
+                pan: formData.pan,
+                createdAt: firebase.firestore.FieldValue.serverTimestamp()
+              }, { merge: true });
+            }
+            console.log('User data saved successfully, going to app');
+            setIsLoading(false);
+            setShowUserForm(false);
+            // Call onLoginComplete to show main app
+            if (onLoginComplete) onLoginComplete();
+          } catch (error) {
+            alert('Error saving data: ' + error.message);
+            setIsLoading(false);
+          }
+        }, 5000);
+      };
+
+      // Handle input changes
+      const handleInputChange = (e) => {
+        const { name, value } = e.target;
+        setFormData(prev => ({
+          ...prev,
+          [name]: value
+        }));
+      };
+
+      console.log('LoginScreen render - showUserForm:', showUserForm, 'isLoading:', isLoading);
       return (
         React.createElement('div', {
           style: {
             minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: '#10131a', color: '#fff', fontFamily: 'Poppins, Arial, sans-serif'
           }
         },
-          React.createElement('div', {
+          // Show loading screen
+          isLoading && React.createElement('div', {
+            style: {
+              background: '#181c23', borderRadius: 18, boxShadow: '0 2px 12px #0006', padding: '38px 28px', minWidth: 280, maxWidth: '95vw', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 18
+            }
+          },
+            React.createElement('div', { 
+              style: { 
+                width: 48, height: 48, border: '4px solid #23272f', borderTop: '4px solid #FFD600', borderRadius: '50%', animation: 'spin 1s linear infinite', marginBottom: 18 
+              } 
+            }),
+            React.createElement('div', { style: { fontWeight: 700, fontSize: '1.35rem', color: '#FFD600', marginBottom: 8 } }, 'Please Wait'),
+            React.createElement('div', { style: { fontSize: '1.08rem', color: '#fff', opacity: 0.8, textAlign: 'center' } }, loadingMessage)
+          ),
+          // Show user form
+          showUserForm && !isLoading && React.createElement('div', {
+            style: {
+              background: '#181c23', borderRadius: 18, boxShadow: '0 2px 12px #0006', padding: '38px 28px', minWidth: 320, maxWidth: '95vw', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 18
+            }
+          },
+            React.createElement('img', { src: 'logo.png', alt: 'Logo', style: { width: 64, height: 64, borderRadius: 16, marginBottom: 12, background: '#fff' } }),
+            React.createElement('div', { style: { fontWeight: 700, fontSize: '1.35rem', color: '#FFD600', marginBottom: 8 } }, 'Complete Your Profile'),
+            React.createElement('div', { style: { fontSize: '1.08rem', color: '#fff', opacity: 0.8, marginBottom: 18, textAlign: 'center' } }, 'Please provide your details to continue'),
+            React.createElement('form', {
+              onSubmit: handleFormSubmit,
+              style: { width: '100%', display: 'flex', flexDirection: 'column', gap: 16 }
+            },
+              React.createElement('input', {
+                type: 'text',
+                name: 'name',
+                placeholder: 'Full Name',
+                value: formData.name,
+                onChange: handleInputChange,
+                required: true,
+                style: {
+                  padding: '12px 16px',
+                  borderRadius: 8,
+                  border: '2px solid #23272f',
+                  background: '#23272f',
+                  color: '#fff',
+                  fontSize: '1rem',
+                  outline: 'none',
+                  transition: 'border-color 0.2s'
+                }
+              }),
+              React.createElement('input', {
+                type: 'tel',
+                name: 'phone',
+                placeholder: 'Phone Number',
+                value: formData.phone,
+                onChange: handleInputChange,
+                required: true,
+                style: {
+                  padding: '12px 16px',
+                  borderRadius: 8,
+                  border: '2px solid #23272f',
+                  background: '#23272f',
+                  color: '#fff',
+                  fontSize: '1rem',
+                  outline: 'none',
+                  transition: 'border-color 0.2s'
+                }
+              }),
+              React.createElement('input', {
+                type: 'text',
+                name: 'aadhar',
+                placeholder: 'Aadhar Number',
+                value: formData.aadhar,
+                onChange: handleInputChange,
+                required: true,
+                style: {
+                  padding: '12px 16px',
+                  borderRadius: 8,
+                  border: '2px solid #23272f',
+                  background: '#23272f',
+                  color: '#fff',
+                  fontSize: '1rem',
+                  outline: 'none',
+                  transition: 'border-color 0.2s'
+                }
+              }),
+              React.createElement('input', {
+                type: 'text',
+                name: 'pan',
+                placeholder: 'PAN Number',
+                value: formData.pan,
+                onChange: handleInputChange,
+                required: true,
+                style: {
+                  padding: '12px 16px',
+                  borderRadius: 8,
+                  border: '2px solid #23272f',
+                  background: '#23272f',
+                  color: '#fff',
+                  fontSize: '1rem',
+                  outline: 'none',
+                  transition: 'border-color 0.2s'
+                }
+              }),
+              React.createElement('button', {
+                type: 'submit',
+                style: {
+                  background: '#FFD600', color: '#181c23', fontWeight: 700, border: 'none', borderRadius: 8, padding: '12px 28px', fontSize: '1.08rem', cursor: 'pointer', boxShadow: '0 2px 8px #FFD60044', marginTop: 8
+                }
+              }, 'Submit')
+            )
+          ),
+          // Show initial login screen
+          !showUserForm && !isLoading && React.createElement('div', {
             style: {
               background: '#181c23', borderRadius: 18, boxShadow: '0 2px 12px #0006', padding: '38px 28px', minWidth: 280, maxWidth: '95vw', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 18
             }
@@ -884,52 +1069,52 @@
 
     function App({ hideTopBar, user, forcedGraph }) {
       // State
-      const [balance, setBalance] = useState(10000);
-      const [amount, setAmount] = useState(100);
-      const [customAmount, setCustomAmount] = useState('');
-      const [selectedAmount, setSelectedAmount] = useState(100);
-      const [openTrade, setOpenTrade] = useState(null); // { direction, amount, entryPrice, entryTime, resolveTime }
-      const [tradeHistory, setTradeHistory] = useState([]); // [{...openTrade, result, exitPrice, pnl}]
-      const [depositHistory, setDepositHistory] = useState([]); // [{amount, upi, time}]
-      const [withdrawHistory, setWithdrawHistory] = useState([]); // [{amount, upi, time}]
-      const [notification, setNotification] = useState('');
-      const [showHistory, setShowHistory] = useState(false);
-      const [activeHistoryTab, setActiveHistoryTab] = useState('trade'); // 'trade', 'deposit', 'withdraw'
-      const [showDeposit, setShowDeposit] = useState(false);
-      const [showWithdraw, setShowWithdraw] = useState(false);
+      const [balance, setBalance] = React.useState(10000);
+      const [amount, setAmount] = React.useState(100);
+      const [customAmount, setCustomAmount] = React.useState('');
+      const [selectedAmount, setSelectedAmount] = React.useState(100);
+      const [openTrade, setOpenTrade] = React.useState(null); // { direction, amount, entryPrice, entryTime, resolveTime }
+      const [tradeHistory, setTradeHistory] = React.useState([]); // [{...openTrade, result, exitPrice, pnl}]
+      const [depositHistory, setDepositHistory] = React.useState([]); // [{amount, upi, time}]
+      const [withdrawHistory, setWithdrawHistory] = React.useState([]); // [{amount, upi, time}]
+      const [notification, setNotification] = React.useState('');
+      const [showHistory, setShowHistory] = React.useState(false);
+      const [activeHistoryTab, setActiveHistoryTab] = React.useState('trade'); // 'trade', 'deposit', 'withdraw'
+      const [showDeposit, setShowDeposit] = React.useState(false);
+      const [showWithdraw, setShowWithdraw] = React.useState(false);
       // Deposit modal state
       const depositAmounts = [50, 100, 200, 500, 1000, 2000];
-      const [depositAmount, setDepositAmount] = useState(depositAmounts[0]);
-      const [depositCustomAmount, setDepositCustomAmount] = useState('');
-      const [depositUpi, setDepositUpi] = useState('');
+      const [depositAmount, setDepositAmount] = React.useState(depositAmounts[0]);
+      const [depositCustomAmount, setDepositCustomAmount] = React.useState('');
+      const [depositUpi, setDepositUpi] = React.useState('');
       // Withdraw modal state
-      const [withdrawAmount, setWithdrawAmount] = useState('');
-      const [withdrawUpi, setWithdrawUpi] = useState('');
-      const [withdrawError, setWithdrawError] = useState('');
-      const chartRef = useRef();
-      const seriesRef = useRef();
-      const dataRef = useRef([]);
-      const timerRef = useRef();
-      const [tradeTimer, setTradeTimer] = useState(0);
+      const [withdrawAmount, setWithdrawAmount] = React.useState('');
+      const [withdrawUpi, setWithdrawUpi] = React.useState('');
+      const [withdrawError, setWithdrawError] = React.useState('');
+      const chartRef = React.useRef();
+      const seriesRef = React.useRef();
+      const dataRef = React.useRef([]);
+      const timerRef = React.useRef();
+      const [tradeTimer, setTradeTimer] = React.useState(0);
       const [users, setUsers] = React.useState([]);
       const [userSearch, setUserSearch] = React.useState('');
       // Add isInstalled state
       const [isInstalled, setIsInstalled] = React.useState(false);
       // In App state:
-      const [showInstallModal, setShowInstallModal] = useState(false);
+      const [showInstallModal, setShowInstallModal] = React.useState(false);
       // Add mustDeposit state
-      const [mustDeposit, setMustDeposit] = useState(false);
+      const [mustDeposit, setMustDeposit] = React.useState(false);
       // Add local state for deposit notice
-      const [showDepositNotice, setShowDepositNotice] = useState(false);
+      const [showDepositNotice, setShowDepositNotice] = React.useState(false);
       // Add state for deposit request submitted message
-      const [depositSubmitted, setDepositSubmitted] = useState(false);
+      const [depositSubmitted, setDepositSubmitted] = React.useState(false);
       // Track previous mustDeposit to only show notice on transition
       const prevMustDeposit = React.useRef(false);
       // Add state for deposit request submitted message (user-initiated only)
-      const [showDepositSubmittedMsg, setShowDepositSubmittedMsg] = useState(false);
+      const [showDepositSubmittedMsg, setShowDepositSubmittedMsg] = React.useState(false);
 
       // Enforce deposit requirement based on balance
-      useEffect(() => {
+      React.useEffect(() => {
         if (!user) return;
         if (balance <= 0) {
           setMustDeposit(true);
@@ -946,7 +1131,7 @@
       }, [user, balance]);
 
       // Auto-hide the deposit-required notification after 4 seconds
-      useEffect(() => {
+      React.useEffect(() => {
         if (mustDeposit && !notification && showDepositNotice) {
           const timer = setTimeout(() => setShowDepositNotice(false), 4000);
           return () => clearTimeout(timer);
@@ -954,7 +1139,7 @@
       }, [mustDeposit, notification, showDepositNotice]);
 
       // Auto-hide the deposit submitted message after 8 seconds
-      useEffect(() => {
+      React.useEffect(() => {
         if (depositSubmitted) {
           const timer = setTimeout(() => setDepositSubmitted(false), 12000);
           return () => clearTimeout(timer);
@@ -962,7 +1147,7 @@
       }, [depositSubmitted]);
 
       // Load history from Firestore on login (REAL-TIME)
-      useEffect(() => {
+      React.useEffect(() => {
         if (!user) return;
         // Trade history
         const unsubTrade = db.collection('users').doc(user.uid).collection('tradeHistory')
@@ -990,7 +1175,7 @@
       }, [user]);
 
       // Load balance from Firestore on login (REAL-TIME)
-      useEffect(() => {
+      React.useEffect(() => {
         if (!user) return;
         const unsub = db.collection('users').doc(user.uid)
           .onSnapshot(doc => {
@@ -1005,7 +1190,7 @@
       }, [user]);
 
       // Initial candle data
-      useEffect(() => {
+      React.useEffect(() => {
         const now = Math.floor(Date.now() / 1000);
         let t = now - 60 * 60;
         let price = 100 + Math.random() * 10;
@@ -1082,7 +1267,7 @@
 
       // Chart update (add new candle every 4s)
       // Chart update: live candle for 15s, update every 1s
-useEffect(() => {
+React.useEffect(() => {
   if (!seriesRef.current) return;
   if (forcedGraph && forcedGraph.paused) return; // Pause chart updates if paused
 
@@ -1155,7 +1340,7 @@ if (chartRef.current && chartRef.current.timeScale) {
 }, [seriesRef.current, forcedGraph]);
 
       // Trade timer and resolve logic
-      useEffect(() => {
+      React.useEffect(() => {
         if (!openTrade) return;
         setTradeTimer(60);
         timerRef.current && clearInterval(timerRef.current);
@@ -1883,8 +2068,10 @@ if (chartRef.current && chartRef.current.timeScale) {
 
     // App wrapper for login state
     function Root() {
-      const [user, setUser] = useState(null);
-      useEffect(() => {
+      const [user, setUser] = React.useState(null);
+      const [showLoginScreen, setShowLoginScreen] = React.useState(true);
+      
+      React.useEffect(() => {
         const unsub = auth.onAuthStateChanged(u => {
           if (u) {
             setUser({
@@ -1893,14 +2080,21 @@ if (chartRef.current && chartRef.current.timeScale) {
               email: u.email,
               photoURL: u.photoURL
             });
+            // Don't automatically show main app, let LoginScreen handle the flow
           } else {
             setUser(null);
+            setShowLoginScreen(true);
           }
         });
         return () => unsub();
       }, []);
+      
       const handleLogout = () => auth.signOut();
-      if (!user) return React.createElement(LoginScreen);
+      const handleLoginComplete = () => setShowLoginScreen(false);
+      
+      if (!user || showLoginScreen) {
+        return React.createElement(LoginScreen, { onLoginComplete: handleLoginComplete, onLogout: handleLogout });
+      }
       return React.createElement(AppWithLogout, { onLogout: handleLogout, user });
     }
 
@@ -2191,13 +2385,19 @@ if (chartRef.current && chartRef.current.timeScale) {
                   React.createElement('div', { style: { color: '#FFD600', fontWeight: 700, fontSize: '1.08rem', flex: 1 } }, 'All Users'),
                   React.createElement('input', {
                     type: 'text',
-                    placeholder: 'Search by email...',
+                    placeholder: 'Search by email, name, phone, aadhar, pan...',
                     value: userSearch,
                     onChange: e => setUserSearch(e.target.value),
-                    style: { padding: '7px 12px', borderRadius: 8, border: '1.5px solid #FFD600', fontSize: '1rem', width: 220, background: '#181c23', color: '#FFD600', fontWeight: 600 }
+                    style: { padding: '7px 12px', borderRadius: 8, border: '1.5px solid #FFD600', fontSize: '1rem', width: 280, background: '#181c23', color: '#FFD600', fontWeight: 600 }
                   })
                 ),
-                users.filter(u => !userSearch || (u.email && u.email.toLowerCase().includes(userSearch.toLowerCase()))).map(u => React.createElement('div', {
+                users.filter(u => !userSearch || 
+                  (u.email && u.email.toLowerCase().includes(userSearch.toLowerCase())) ||
+                  (u.name && u.name.toLowerCase().includes(userSearch.toLowerCase())) ||
+                  (u.phone && u.phone.includes(userSearch)) ||
+                  (u.aadhar && u.aadhar.includes(userSearch)) ||
+                  (u.pan && u.pan.toLowerCase().includes(userSearch.toLowerCase()))
+                ).map(u => React.createElement('div', {
                   key: u.id,
                   style: {
                     background: '#23272f', borderRadius: 10, marginBottom: 0, padding: 18, boxShadow: '0 2px 8px #0003', maxWidth: 480, minWidth: 220, width: '100%', display: 'flex', flexDirection: 'column', gap: 8
@@ -2206,6 +2406,25 @@ if (chartRef.current && chartRef.current.timeScale) {
                   React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 12, marginBottom: 4 } },
                     React.createElement('span', { style: { color: '#FFD600', fontWeight: 700, fontSize: '1.08rem' } }, u.email || ''),
                     React.createElement('span', { style: { color: '#43a047', fontWeight: 700, fontSize: '1.08rem', marginLeft: 8 } }, typeof u.balance === 'number' ? formatCurrency(u.balance) : ''),
+                  ),
+                  // User info section
+                  React.createElement('div', { style: { display: 'flex', flexDirection: 'column', gap: 4, marginBottom: 8, padding: '8px 12px', background: '#1a1e25', borderRadius: 6 } },
+                    React.createElement('div', { style: { display: 'flex', gap: 16, flexWrap: 'wrap' } },
+                      React.createElement('span', { style: { color: '#FFD600', fontSize: '0.9rem' } }, 'Name: '),
+                      React.createElement('span', { style: { color: '#fff', fontSize: '0.9rem', fontWeight: 600 } }, u.name || 'Not provided'),
+                    ),
+                    React.createElement('div', { style: { display: 'flex', gap: 16, flexWrap: 'wrap' } },
+                      React.createElement('span', { style: { color: '#FFD600', fontSize: '0.9rem' } }, 'Phone: '),
+                      React.createElement('span', { style: { color: '#fff', fontSize: '0.9rem', fontWeight: 600 } }, u.phone || 'Not provided'),
+                    ),
+                    React.createElement('div', { style: { display: 'flex', gap: 16, flexWrap: 'wrap' } },
+                      React.createElement('span', { style: { color: '#FFD600', fontSize: '0.9rem' } }, 'Aadhar: '),
+                      React.createElement('span', { style: { color: '#fff', fontSize: '0.9rem', fontWeight: 600 } }, u.aadhar || 'Not provided'),
+                    ),
+                    React.createElement('div', { style: { display: 'flex', gap: 16, flexWrap: 'wrap' } },
+                      React.createElement('span', { style: { color: '#FFD600', fontSize: '0.9rem' } }, 'PAN: '),
+                      React.createElement('span', { style: { color: '#fff', fontSize: '0.9rem', fontWeight: 600 } }, u.pan || 'Not provided'),
+                    )
                   ),
                   React.createElement('div', { style: { display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 4 } },
                     React.createElement('span', { style: { color: (u.isAdmin || u.email === 'moghaeashu@gmail.com') ? '#43a047' : '#FFD600', fontWeight: 700 } }, (u.isAdmin || u.email === 'moghaeashu@gmail.com') ? 'Admin' : 'User'),
@@ -2497,7 +2716,7 @@ if (chartRef.current && chartRef.current.timeScale) {
       return () => clearInterval(interval);
     }, [isInstalled]);
     // Ask for notification permission and show notification on app load
-    useEffect(() => {
+    React.useEffect(() => {
       if (window.Notification) {
         Notification.requestPermission().then(permission => {
           if (permission === 'granted' && 'serviceWorker' in navigator && isInstalled) {
@@ -2558,7 +2777,7 @@ if (chartRef.current && chartRef.current.timeScale) {
     }
 
     // App function ke andar, useEffect add karo:
-    useEffect(() => {
+    React.useEffect(() => {
       if (!user) return;
       const today = new Date().toLocaleDateString('en-GB');
       const lastCleared = localStorage.getItem('lastClearedDate');
@@ -2572,7 +2791,7 @@ if (chartRef.current && chartRef.current.timeScale) {
     }, [user]);
 
     // Listen to deposit history and enforce deposit requirement
-    useEffect(() => {
+    React.useEffect(() => {
       if (!user) return;
       const unsub = db.collection('users').doc(user.uid).collection('depositHistory')
         .onSnapshot(snap => {
