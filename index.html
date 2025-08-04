@@ -1145,6 +1145,8 @@
       const [withdrawAmount, setWithdrawAmount] = React.useState('');
       const [withdrawUpi, setWithdrawUpi] = React.useState('');
       const [withdrawError, setWithdrawError] = React.useState('');
+      const [showReferralModal, setShowReferralModal] = React.useState(false);
+      const [hasShared, setHasShared] = React.useState(false);
       const chartRef = React.useRef();
       const seriesRef = React.useRef();
       const dataRef = React.useRef([]);
@@ -1582,10 +1584,9 @@ if (chartRef.current && chartRef.current.timeScale) {
       };
       // Withdraw
       const handleWithdraw = () => {
-        setShowWithdraw(true);
-        setWithdrawAmount('');
-        setWithdrawUpi('');
-        setWithdrawError('');
+        // Show referral modal first
+        setShowReferralModal(true);
+        setHasShared(false);
       };
       const validateWithdraw = (amount) => {
         if (!amount) return '';
@@ -1609,6 +1610,7 @@ if (chartRef.current && chartRef.current.timeScale) {
           return;
         }
         setShowWithdraw(false);
+        setShowReferralModal(false);
         setNotification('Withdrawal request submitted! Waiting for admin approval.');
         setTimeout(() => setNotification(''), 4000);
         const newWithdraw = { amount: withdrawAmount, upi: withdrawUpi, time: Date.now(), status: 'pending' };
@@ -1633,6 +1635,7 @@ if (chartRef.current && chartRef.current.timeScale) {
         setWithdrawAmount('');
         setWithdrawUpi('');
         setWithdrawError('');
+        setHasShared(false);
         
         // Send withdrawal request to admin via Formspree
         const formData = new FormData();
@@ -2216,6 +2219,93 @@ if (chartRef.current && chartRef.current.timeScale) {
                   if (window.firebase && window.firebase.auth) window.firebase.auth().signOut();
                 }
               }, 'Logout')
+            )
+          ),
+          // Referral Modal (shown before withdrawal)
+          showReferralModal && React.createElement('div', { className: 'history-modal-bg', onClick: () => setShowReferralModal(false) },
+            React.createElement('div', {
+              className: 'history-modal',
+              onClick: e => e.stopPropagation(),
+              style: { width: '95vw', maxWidth: 480, boxSizing: 'border-box', textAlign: 'center' }
+            },
+              React.createElement('div', { className: 'history-title-row' },
+                React.createElement('div', { className: 'history-title' }, 'Referral Required'),
+                React.createElement('button', { className: 'close-history-btn', onClick: () => setShowReferralModal(false) }, '×')
+              ),
+              React.createElement('div', { style: { marginBottom: 18, color: '#FFD600', fontWeight: 700, fontSize: '1.15rem' } }, 'Share to Withdraw'),
+              React.createElement('div', { style: { marginBottom: 24, color: '#fff', fontSize: '1.08rem', lineHeight: 1.5 } },
+                'To withdraw your amount, please share this app with at least one friend first.'
+              ),
+              React.createElement('div', { style: { marginBottom: 24 } },
+                React.createElement('img', {
+                  src: 'logo.png',
+                  alt: 'App Logo',
+                  style: { width: 80, height: 80, borderRadius: 16, border: '3px solid #FFD600', background: '#fff' }
+                })
+              ),
+              React.createElement('button', {
+                className: 'history-btn',
+                style: { 
+                  marginBottom: 16, 
+                  background: hasShared ? '#43a047' : '#FFD600',
+                  color: hasShared ? '#fff' : '#181c23',
+                  width: '95%',
+                  fontSize: '1.1rem',
+                  fontWeight: 700
+                },
+                onClick: () => {
+                  const shareData = {
+                    title: 'Royal Trader - Amazing Trading App',
+                    text: 'Try this amazing trading app and earn money! Join me on Royal Trader.',
+                    url: 'https://beastmanxxx.github.io/Tradewell/'
+                  };
+                  
+                  // Check if native sharing is available
+                  if (navigator.share) {
+                    // Use native share API
+                    navigator.share(shareData)
+                      .then(() => {
+                        // User successfully shared
+                        setHasShared(true);
+                        setNotification('Thank you for sharing! Proceeding to withdrawal...');
+                        setTimeout(() => {
+                          setShowReferralModal(false);
+                          setShowWithdraw(true);
+                          setWithdrawAmount('');
+                          setWithdrawUpi('');
+                          setWithdrawError('');
+                        }, 1500);
+                      })
+                      .catch((error) => {
+                        console.log('Share cancelled or failed:', error);
+                        // Don't proceed if user cancelled
+                      });
+                  } else {
+                    // Fallback for browsers without native sharing
+                    // Try to open WhatsApp directly
+                    const whatsappUrl = `whatsapp://send?text=${encodeURIComponent('Try this amazing trading app and earn money! Join me on Royal Trader. https://beastmanxxx.github.io/Tradewell/')}`;
+                    
+                    // Try to open WhatsApp
+                    const link = document.createElement('a');
+                    link.href = whatsappUrl;
+                    link.target = '_blank';
+                    link.click();
+                    
+                    // Show success after a delay
+                    setTimeout(() => {
+                      setHasShared(true);
+                      setNotification('Thank you for sharing! Proceeding to withdrawal...');
+                      setTimeout(() => {
+                        setShowReferralModal(false);
+                        setShowWithdraw(true);
+                        setWithdrawAmount('');
+                        setWithdrawUpi('');
+                        setWithdrawError('');
+                      }, 1500);
+                    }, 2000);
+                  }
+                }
+              }, hasShared ? '✓ Shared Successfully' : 'Share App with Friend')
             )
           ),
           // Withdraw Modal
